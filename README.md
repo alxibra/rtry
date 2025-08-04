@@ -132,6 +132,6 @@ require (
     golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
 )
 
-## 🧭 Retry Flow Diagram
+##  Retry Flow Diagram
 
 ![Retry Flow](https://raw.githubusercontent.com/alxibra/rtry/main/docs/retry-flow.png)
