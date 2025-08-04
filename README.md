@@ -131,6 +131,7 @@ require (
     github.com/rabbitmq/amqp091-go v1.10.0
     golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
 )
+```
 
 ##  Retry Flow Diagram
 
