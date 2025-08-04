@@ -6,11 +6,11 @@
 
 ### ✨ Features
 
-- 🌀 **Exponential backoff with jitter** (customizable)
-- 🧠 **Retry metadata** via headers (`x-retry-count`)
-- 🚨 **Max retry attempts** with graceful drop logging
-- 🪝 **Inject custom backoff strategy**
-- 🪄 **Clean RabbitMQ queue setup** (main + retry + bindings)
+-  **Exponential backoff with jitter** (customizable)
+-  **Retry metadata** via headers (`x-retry-count`)
+-  **Max retry attempts** with graceful drop logging
+-  **Inject custom backoff strategy**
+-  **Clean RabbitMQ queue setup** (main + retry + bindings)
 
 ---
 
