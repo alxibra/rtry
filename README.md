@@ -1,6 +1,6 @@
-# rtry
-
 ![Go Version](https://img.shields.io/badge/go-1.18%2B-blue)
+
+# rtry
 
 **rtry** is a lightweight Go library for handling RabbitMQ retry logic using a dedicated retry queue, exponential backoff with jitter, and configurable max-attempt limits. It supports clean separation of retry queue declarations and re-publishing logic when processing fails.
 
