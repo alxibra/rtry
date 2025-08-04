@@ -4,7 +4,7 @@
 
 ---
 
-### ✨ Features
+###  Features
 
 -  **Exponential backoff with jitter** (customizable)
 -  **Retry metadata** via headers (`x-retry-count`)
@@ -14,7 +14,7 @@
 
 ---
 
-### 📦 Installation
+###  Installation
 
 ```bash
 go get github.com/alxibra/rtry@latest
