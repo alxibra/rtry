@@ -117,3 +117,15 @@ for msg := range msgs {
 | `max-attempts`    | `int`            | Maximum retry attempts before dropping           |
 | `backoff`         | `func(int) int`  | Custom backoff strategy per retry count          |
 | `delay_in_second` | `int`            | Fixed delay override (bypasses backoff function) |
+
+##  Requirements
+
+- Go **1.18+**
+- The following dependencies:
+
+```go
+require (
+    github.com/fatih/color v1.18.0
+    github.com/rabbitmq/amqp091-go v1.10.0
+    golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
+)
