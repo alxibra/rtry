@@ -135,4 +135,4 @@ require (
 
 ##  Retry Flow Diagram
 
-![Retry Flow](https://raw.githubusercontent.com/alxibra/rtry/main/docs/retry-flow.png)
+![Retry Flow](docs/retry-flow.png)
