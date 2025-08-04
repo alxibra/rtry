@@ -108,3 +108,12 @@ for msg := range msgs {
 	msg.Ack(false)
 }
 ```
+
+**Retry Options**
+
+
+| Option Key        | Type             | Description                                      |
+|-------------------|------------------|--------------------------------------------------|
+| `max-attempts`    | `int`            | Maximum retry attempts before dropping           |
+| `backoff`         | `func(int) int`  | Custom backoff strategy per retry count          |
+| `delay_in_second` | `int`            | Fixed delay override (bypasses backoff function) |
