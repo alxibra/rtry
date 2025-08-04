@@ -75,5 +75,36 @@ func initialize() (*amqp.Connection, *amqp.Channel) {
 	}
 	return conn, ch
 }
+```
 
+### With Custom Options
+
+```go
+rty, err := rtry.Init(
+	"main_exchange",
+	"main_queue",
+	"retry_queue",
+	"main_key",
+	"retry_key",
+	rtry.Option{
+		"max-attempts": 3,
+		"backoff": func(retryCount int) int {
+			return int(math.Pow(float64(retryCount), 4) + 5) // custom exponential backoff function
+		},
+	},
+	chn,
+)
+
+msgs, _ := rty.Consume(chn)
+
+for msg := range msgs {
+	rty.Retry(
+		msg,
+		rtry.Option{
+			"delay_in_second": 5, // if need fixed delayed 
+		},
+		chn,
+	)
+	msg.Ack(false)
+}
 ```
