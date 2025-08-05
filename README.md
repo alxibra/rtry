@@ -1,4 +1,5 @@
 ![Go Version](https://img.shields.io/badge/go-1.18%2B-blue)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](/LICENSE)
 
 # rtry
 
