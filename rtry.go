@@ -13,6 +13,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const retryHeader = "x-retry-count"
+
 type Option map[string]any
 
 type Retry struct {
@@ -139,18 +141,7 @@ func (rty Retry) Retry(
 	option Option,
 	ch *amqp091.Channel,
 ) error {
-	retryCount := 0
-	if val, ok := msg.Headers["x-retry-count"]; ok {
-		switch v := val.(type) {
-		case int32:
-			retryCount = int(v)
-		case int64:
-			retryCount = int(v)
-		case string:
-			retryCount, _ = strconv.Atoi(v)
-		}
-	}
-	retryCount += 1
+	retryCount := getRetryCount(msg)
 
 	if retryCount > rty.maxAttempts {
 		color.Red(
@@ -207,4 +198,36 @@ func defaultBackoff(retryCount int) int {
 	jitter := r.Intn(delay) - 2
 	delay += int(jitter)
 	return delay
+}
+
+func getRetryCount(msg amqp091.Delivery) int {
+	const defaultRetry = 1
+
+	val, ok := msg.Headers[retryHeader]
+	if !ok {
+		return defaultRetry
+	}
+
+	var retryCount = 0
+	switch v := val.(type) {
+	case int32:
+		retryCount = int(v)
+	case int64:
+		retryCount = int(v)
+	case string:
+		if n, err := strconv.Atoi(v); err == nil {
+			retryCount = n
+		} else {
+			return defaultRetry
+		}
+	default:
+		return defaultRetry
+	}
+	if retryCount < 0 {
+		retryCount = 0
+	}
+	if retryCount == math.MaxInt32 {
+		return retryCount
+	}
+	return retryCount
 }
