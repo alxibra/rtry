@@ -229,5 +229,5 @@ func getRetryCount(msg amqp091.Delivery) int {
 	if retryCount == math.MaxInt32 {
 		return retryCount
 	}
-	return retryCount
+	return retryCount + 1
 }
