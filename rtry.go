@@ -152,18 +152,6 @@ func (rty Retry) Retry(
 		return fmt.Errorf("Max retry attempts reached (%d).", rty.maxAttempts)
 	}
 
-	delaySeconds := rty.parseDelayInSecond(option, retryCount)
-	delayMs := strconv.Itoa(delaySeconds * 1000)
-	nextRetryAt := time.Now().Add(time.Duration(delaySeconds) * time.Second)
-	color.Yellow(
-		"%s Attempt %d/%d with delay %d seconds. Retry at: %s",
-		time.Now().Format("2006/01/02 15:04:05"),
-		retryCount,
-		rty.maxAttempts,
-		delaySeconds,
-		nextRetryAt.Format("2006-01-02 15:04:05"),
-	)
-
 	return ch.Publish(
 		rty.mainXchange,
 		rty.retryKey,
@@ -173,7 +161,7 @@ func (rty Retry) Retry(
 			Body:        msg.Body,
 			ContentType: msg.ContentType,
 			Headers:     buildRetryHeaders(msg, retryCount),
-			Expiration:  delayMs,
+			Expiration:  rty.getDelay(option, retryCount),
 		},
 	)
 }
@@ -235,4 +223,21 @@ func buildRetryHeaders(msg amqp091.Delivery, retryCount int) amqp.Table {
 	maps.Copy(headers, msg.Headers)
 	headers["x-retry-count"] = int32(retryCount)
 	return headers
+}
+
+func (rty Retry) getDelay(o Option, retryCount int) string {
+	delaySeconds := rty.parseDelayInSecond(o, retryCount)
+	now := time.Now()
+	nextRetryAt := now.Add(time.Duration(delaySeconds) * time.Second)
+
+	color.Yellow(
+		"%s Attempt %d/%d with delay %d seconds. Retry at: %s",
+		now.Format("2006/01/02 15:04:05"),
+		retryCount,
+		rty.maxAttempts,
+		delaySeconds,
+		nextRetryAt.Format("2006-01-02 15:04:05"),
+	)
+
+	return strconv.Itoa(delaySeconds * 1000)
 }
