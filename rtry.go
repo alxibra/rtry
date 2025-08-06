@@ -151,9 +151,7 @@ func (rty Retry) Retry(
 		)
 		return fmt.Errorf("Max retry attempts reached (%d).", rty.maxAttempts)
 	}
-	newHeaders := amqp.Table{}
-	maps.Copy(newHeaders, msg.Headers)
-	newHeaders["x-retry-count"] = int32(retryCount)
+
 	delaySeconds := rty.parseDelayInSecond(option, retryCount)
 	delayMs := strconv.Itoa(delaySeconds * 1000)
 	nextRetryAt := time.Now().Add(time.Duration(delaySeconds) * time.Second)
@@ -174,7 +172,7 @@ func (rty Retry) Retry(
 		amqp091.Publishing{
 			Body:        msg.Body,
 			ContentType: msg.ContentType,
-			Headers:     newHeaders,
+			Headers:     buildRetryHeaders(msg, retryCount),
 			Expiration:  delayMs,
 		},
 	)
@@ -230,4 +228,11 @@ func getRetryCount(msg amqp091.Delivery) int {
 		return retryCount
 	}
 	return retryCount + 1
+}
+
+func buildRetryHeaders(msg amqp091.Delivery, retryCount int) amqp.Table {
+	headers := amqp.Table{}
+	maps.Copy(headers, msg.Headers)
+	headers["x-retry-count"] = int32(retryCount)
+	return headers
 }
