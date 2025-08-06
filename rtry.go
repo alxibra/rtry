@@ -14,6 +14,9 @@ import (
 )
 
 const retryHeader = "x-retry-count"
+const warning = 1
+const info = 2
+const err = 3
 
 type Option map[string]any
 
@@ -111,23 +114,21 @@ func Init(
 }
 
 func parseBackoff(o Option) func(int) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if fn, ok := o["backoff"].(func(int) int); ok {
-		color.Cyan("%s Using configured backoff function", now)
+		bLog(info, "Using configured backoff function")
 		return fn
 	}
 	return defaultBackoff
 }
 
 func parseMaxAttempts(o Option) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if val, ok := o["max-attempts"]; ok {
 		if attempts, ok := val.(int); ok {
-			color.Cyan("%s Using configured max-attempts: %d", now, attempts)
+			bLog(info, "Using configured max-attempts: %d", attempts)
 			return attempts
 		}
 	}
-	color.Yellow("%s 'max-attempts' not set, using default: 5", now)
+	bLog(warning, "'max-attempts' not set, using default: %d", 5)
 	return 5
 }
 
@@ -144,11 +145,7 @@ func (rty Retry) Retry(
 	retryCount := getRetryCount(msg)
 
 	if retryCount > rty.maxAttempts {
-		color.Red(
-			"%s Max retry attempts reached (%d).",
-			time.Now().Format("2006/01/02 15:04:05"),
-			rty.maxAttempts,
-		)
+		bLog(err, "Max retry attempts reached (%d).", rty.maxAttempts)
 		return fmt.Errorf("Max retry attempts reached (%d).", rty.maxAttempts)
 	}
 
@@ -167,10 +164,9 @@ func (rty Retry) Retry(
 }
 
 func (r Retry) parseDelayInSecond(o Option, retryCount int) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if val, ok := o["delay_in_second"]; ok {
 		if delay, ok := val.(int); ok {
-			color.Cyan("%s Using configured delay_in_second: %d", now, delay)
+			bLog(info, "Using configured delay_in_second: %d", delay)
 			return delay
 		}
 	}
@@ -230,9 +226,9 @@ func (rty Retry) getDelay(o Option, retryCount int) string {
 	now := time.Now()
 	nextRetryAt := now.Add(time.Duration(delaySeconds) * time.Second)
 
-	color.Yellow(
-		"%s Attempt %d/%d with delay %d seconds. Retry at: %s",
-		now.Format("2006/01/02 15:04:05"),
+	bLog(
+		warning,
+		"Attempt %d/%d with delay %d seconds. Retry at: %s",
 		retryCount,
 		rty.maxAttempts,
 		delaySeconds,
@@ -240,4 +236,20 @@ func (rty Retry) getDelay(o Option, retryCount int) string {
 	)
 
 	return strconv.Itoa(delaySeconds * 1000)
+}
+
+func bLog(level int, format string, a ...any) {
+	now := time.Now()
+	a = append([]any{now.Format("2006/01/02 15:04:05")}, a...)
+	format = "%s " + format
+	switch level {
+	case warning:
+		color.Yellow(format, a...)
+	case info:
+		color.Cyan(format, a...)
+	case err:
+		color.Red(format, a...)
+	default:
+		color.Yellow(format, a...)
+	}
 }
