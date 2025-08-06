@@ -154,13 +154,17 @@ func (rty Retry) Retry(
 		rty.retryKey,
 		false,
 		false,
-		amqp091.Publishing{
-			Body:        msg.Body,
-			ContentType: msg.ContentType,
-			Headers:     buildRetryHeaders(msg, retryCount),
-			Expiration:  rty.getDelay(option, retryCount),
-		},
+		rty.getPublishing(msg, retryCount, option),
 	)
+}
+
+func (rty Retry) getPublishing(msg amqp091.Delivery, retryCount int, option Option) amqp091.Publishing {
+	return amqp091.Publishing{
+		Body:        msg.Body,
+		ContentType: msg.ContentType,
+		Headers:     buildRetryHeaders(msg, retryCount),
+		Expiration:  rty.getDelay(option, retryCount),
+	}
 }
 
 func (r Retry) parseDelayInSecond(o Option, retryCount int) int {
