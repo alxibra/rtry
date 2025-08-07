@@ -66,3 +66,51 @@ func TestBuildRetryHeaders(t *testing.T) {
 		t.Errorf("expected x-retry-count to be %d, got %v", retryCount, val)
 	}
 }
+
+func TestGetPublishing(t *testing.T) {
+	rty := Retry{
+		mainXchange: "main-ex",
+		mainQueue:   "main-queue",
+		retryQueue:  "retry-queue",
+		mainKey:     "main-key",
+		retryKey:    "retry-key",
+		maxAttempts: 5,
+		backoff: func(i int) int {
+			return 3
+		},
+	}
+
+	msg := amqp091.Delivery{
+		Body:        []byte("hello"),
+		ContentType: "application/json",
+		Headers:     amqp091.Table{"x-original-header": "abc"},
+	}
+
+	retryCount := 2
+
+	option := Option{
+		"delay_in_second": 3,
+	}
+
+	pub := rty.getPublishing(msg, retryCount, option)
+
+	if string(pub.Body) != string(msg.Body) {
+		t.Errorf("unexpected body: got %q, want %q", pub.Body, msg.Body)
+	}
+
+	if pub.ContentType != msg.ContentType {
+		t.Errorf("unexpected content type: got %q, want %q", pub.ContentType, msg.ContentType)
+	}
+
+	if pub.Expiration != "3000" {
+		t.Errorf("unexpected expiration: got %q, want %q", pub.Expiration, "3000")
+	}
+
+	if v, ok := pub.Headers["x-original-header"]; !ok || v != "abc" {
+		t.Errorf("missing or incorrect x-original-header: got %v", v)
+	}
+
+	if v, ok := pub.Headers["x-retry-count"]; !ok || v != int32(retryCount) {
+		t.Errorf("missing or incorrect x-retry-count: got %v", v)
+	}
+}
