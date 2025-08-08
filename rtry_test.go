@@ -129,17 +129,17 @@ func TestParseMaxAttempts(t *testing.T) {
 		{
 			name:     "missing max-attempts uses default",
 			option:   Option{},
-			expected: defaultAttemps,
+			expected: defaultAttempts,
 		},
 		{
 			name:     "wrong type for max-attempts uses default",
 			option:   Option{"max-attempts": "oops"},
-			expected: defaultAttemps,
+			expected: defaultAttempts,
 		},
 		{
 			name:     "nil value for max-attempts uses default",
 			option:   Option{"max-attempts": nil},
-			expected: defaultAttemps,
+			expected: defaultAttempts,
 		},
 	}
 
@@ -150,6 +150,39 @@ func TestParseMaxAttempts(t *testing.T) {
 			got := parseMaxAttempts(tt.option)
 			if got != tt.expected {
 				t.Errorf("parseMaxAttempts() = %d; want %d", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDefaultBackoff(t *testing.T) {
+	tests := []struct {
+		name       string
+		retryCount int
+	}{
+		{"retry 1", 1},
+		{"retry 2", 2},
+		{"retry 3", 3},
+		{"retry 4", 4},
+		{"retry 5", 5},
+		{"retry 6", 6},
+		{"retry 7", 7},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			base := int(math.Pow(float64(tt.retryCount), 4) + 5)
+			min := base - 2
+			max := 2*base - 3
+
+			for range [100]int{} {
+				got := defaultBackoff(tt.retryCount)
+				if got < min || got > max {
+					t.Errorf("defaultBackoff(%d) = %d; want in range [%d, %d]", tt.retryCount, got, min, max)
+				}
 			}
 		})
 	}
