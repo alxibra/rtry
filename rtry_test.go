@@ -114,3 +114,43 @@ func TestGetPublishing(t *testing.T) {
 		t.Errorf("missing or incorrect x-retry-count: got %v", v)
 	}
 }
+
+func TestParseMaxAttempts(t *testing.T) {
+	tests := []struct {
+		name     string
+		option   Option
+		expected int
+	}{
+		{
+			name:     "configured max-attempts",
+			option:   Option{"max-attempts": 10},
+			expected: 10,
+		},
+		{
+			name:     "missing max-attempts uses default",
+			option:   Option{},
+			expected: defaultAttemps,
+		},
+		{
+			name:     "wrong type for max-attempts uses default",
+			option:   Option{"max-attempts": "oops"},
+			expected: defaultAttemps,
+		},
+		{
+			name:     "nil value for max-attempts uses default",
+			option:   Option{"max-attempts": nil},
+			expected: defaultAttemps,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt // 👈 capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel() // 💡 Run this test in parallel
+			got := parseMaxAttempts(tt.option)
+			if got != tt.expected {
+				t.Errorf("parseMaxAttempts() = %d; want %d", got, tt.expected)
+			}
+		})
+	}
+}
