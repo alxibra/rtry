@@ -17,7 +17,7 @@ const retryHeader = "x-retry-count"
 const warning = 1
 const info = 2
 const err = 3
-const defaultAttemps = 5
+const defaultAttempts = 5
 
 type Option map[string]any
 
@@ -129,8 +129,8 @@ func parseMaxAttempts(o Option) int {
 			return attempts
 		}
 	}
-	bLog(warning, "'max-attempts' not set, using default: %d", defaultAttemps)
-	return defaultAttemps
+	bLog(warning, "'max-attempts' not set, using default: %d", defaultAttempts)
+	return defaultAttempts
 }
 
 func (rty Retry) Consume(ch *amqp091.Channel) (<-chan amqp091.Delivery, error) {
