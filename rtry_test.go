@@ -187,3 +187,22 @@ func TestDefaultBackoff(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDelay_WithFixedDelay(t *testing.T) {
+	r := Retry{
+		maxAttempts: 5,
+		// backoff will not be used if "delay_in_second" is provided in options
+	}
+
+	opt := Option{
+		"delay_in_second": 3,
+	}
+
+	delay := r.getDelay(opt, 1)
+
+	expected := "3000" // 3 seconds → 3000 milliseconds
+
+	if delay != expected {
+		t.Errorf("Expected %s, got %s", expected, delay)
+	}
+}
