@@ -13,6 +13,12 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const retryHeader = "x-retry-count"
+const warning = 1
+const info = 2
+const err = 3
+const defaultAttempts = 5
+
 type Option map[string]any
 
 type Retry struct {
@@ -109,29 +115,30 @@ func Init(
 }
 
 func parseBackoff(o Option) func(int) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if fn, ok := o["backoff"].(func(int) int); ok {
-		color.Cyan("%s Using configured backoff function", now)
+		bLog(info, "Using configured backoff function")
 		return fn
 	}
 	return defaultBackoff
 }
 
 func parseMaxAttempts(o Option) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if val, ok := o["max-attempts"]; ok {
 		if attempts, ok := val.(int); ok {
-			color.Cyan("%s Using configured max-attempts: %d", now, attempts)
+			bLog(info, "Using configured max-attempts: %d", attempts)
 			return attempts
 		}
 	}
-	color.Yellow("%s 'max-attempts' not set, using default: 5", now)
-	return 5
+	bLog(warning, "'max-attempts' not set, using default: %d", defaultAttempts)
+	return defaultAttempts
 }
 
 func (rty Retry) Consume(ch *amqp091.Channel) (<-chan amqp091.Delivery, error) {
 	msgs, err := ch.Consume(rty.mainQueue, "", false, false, false, false, nil)
-	return msgs, fmt.Errorf("Retry Consumer: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("Retry Consumer: %w", err)
+	}
+	return msgs, nil
 }
 
 func (rty Retry) Retry(
@@ -139,61 +146,35 @@ func (rty Retry) Retry(
 	option Option,
 	ch *amqp091.Channel,
 ) error {
-	retryCount := 0
-	if val, ok := msg.Headers["x-retry-count"]; ok {
-		switch v := val.(type) {
-		case int32:
-			retryCount = int(v)
-		case int64:
-			retryCount = int(v)
-		case string:
-			retryCount, _ = strconv.Atoi(v)
-		}
-	}
-	retryCount += 1
+	retryCount := getRetryCount(msg)
 
 	if retryCount > rty.maxAttempts {
-		color.Red(
-			"%s Max retry attempts reached (%d).",
-			time.Now().Format("2006/01/02 15:04:05"),
-			rty.maxAttempts,
-		)
+		bLog(err, "Max retry attempts reached (%d).", rty.maxAttempts)
 		return fmt.Errorf("Max retry attempts reached (%d).", rty.maxAttempts)
 	}
-	newHeaders := amqp.Table{}
-	maps.Copy(newHeaders, msg.Headers)
-	newHeaders["x-retry-count"] = int32(retryCount)
-	delaySeconds := rty.parseDelayInSecond(option, retryCount)
-	delayMs := strconv.Itoa(delaySeconds * 1000)
-	nextRetryAt := time.Now().Add(time.Duration(delaySeconds) * time.Second)
-	color.Yellow(
-		"%s Attempt %d/%d with delay %d seconds. Retry at: %s",
-		time.Now().Format("2006/01/02 15:04:05"),
-		retryCount,
-		rty.maxAttempts,
-		delaySeconds,
-		nextRetryAt.Format("2006-01-02 15:04:05"),
-	)
 
 	return ch.Publish(
 		rty.mainXchange,
 		rty.retryKey,
 		false,
 		false,
-		amqp091.Publishing{
-			Body:        msg.Body,
-			ContentType: msg.ContentType,
-			Headers:     newHeaders,
-			Expiration:  delayMs,
-		},
+		rty.getPublishing(msg, retryCount, option),
 	)
 }
 
+func (rty Retry) getPublishing(msg amqp091.Delivery, retryCount int, option Option) amqp091.Publishing {
+	return amqp091.Publishing{
+		Body:        msg.Body,
+		ContentType: msg.ContentType,
+		Headers:     buildRetryHeaders(msg, retryCount),
+		Expiration:  rty.getDelay(option, retryCount),
+	}
+}
+
 func (r Retry) parseDelayInSecond(o Option, retryCount int) int {
-	now := time.Now().Format("2006/01/02 15:04:05")
 	if val, ok := o["delay_in_second"]; ok {
 		if delay, ok := val.(int); ok {
-			color.Cyan("%s Using configured delay_in_second: %d", now, delay)
+			bLog(info, "Using configured delay_in_second: %d", delay)
 			return delay
 		}
 	}
@@ -207,4 +188,76 @@ func defaultBackoff(retryCount int) int {
 	jitter := r.Intn(delay) - 2
 	delay += int(jitter)
 	return delay
+}
+
+func getRetryCount(msg amqp091.Delivery) int {
+	const defaultRetry = 1
+
+	val, ok := msg.Headers[retryHeader]
+	if !ok {
+		return defaultRetry
+	}
+
+	var retryCount = 0
+	switch v := val.(type) {
+	case int32:
+		retryCount = int(v)
+	case int64:
+		retryCount = int(v)
+	case string:
+		if n, err := strconv.Atoi(v); err == nil {
+			retryCount = n
+		} else {
+			return defaultRetry
+		}
+	default:
+		return defaultRetry
+	}
+	if retryCount < 0 {
+		retryCount = 0
+	}
+	if retryCount == math.MaxInt32 {
+		return retryCount
+	}
+	return retryCount + 1
+}
+
+func buildRetryHeaders(msg amqp091.Delivery, retryCount int) amqp.Table {
+	headers := amqp.Table{}
+	maps.Copy(headers, msg.Headers)
+	headers["x-retry-count"] = int32(retryCount)
+	return headers
+}
+
+func (rty Retry) getDelay(o Option, retryCount int) string {
+	delaySeconds := rty.parseDelayInSecond(o, retryCount)
+	now := time.Now()
+	nextRetryAt := now.Add(time.Duration(delaySeconds) * time.Second)
+
+	bLog(
+		warning,
+		"Attempt %d/%d with delay %d seconds. Retry at: %s",
+		retryCount,
+		rty.maxAttempts,
+		delaySeconds,
+		nextRetryAt.Format("2006-01-02 15:04:05"),
+	)
+
+	return strconv.Itoa(delaySeconds * 1000)
+}
+
+func bLog(level int, format string, a ...any) {
+	now := time.Now()
+	a = append([]any{now.Format("2006/01/02 15:04:05")}, a...)
+	format = "%s " + format
+	switch level {
+	case warning:
+		color.Yellow(format, a...)
+	case info:
+		color.Cyan(format, a...)
+	case err:
+		color.Red(format, a...)
+	default:
+		color.Yellow(format, a...)
+	}
 }
