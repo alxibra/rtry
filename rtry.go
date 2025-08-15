@@ -135,7 +135,10 @@ func parseMaxAttempts(o Option) int {
 
 func (rty Retry) Consume(ch *amqp091.Channel) (<-chan amqp091.Delivery, error) {
 	msgs, err := ch.Consume(rty.mainQueue, "", false, false, false, false, nil)
-	return msgs, fmt.Errorf("Retry Consumer: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("Retry Consumer: %w", err)
+	}
+	return msgs, nil
 }
 
 func (rty Retry) Retry(
